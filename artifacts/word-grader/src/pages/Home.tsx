@@ -477,6 +477,8 @@ export default function Home() {
 
   const copyScore = () => {
     const lengthMod = total < 100 ? "0.7 (short text)" : total < 200 ? "0.85 (medium text)" : "1.0 (long text)";
+    const namesList  = exemptNames.trim()  ? exemptNames.split(",").map(s => s.trim()).filter(Boolean) : [];
+    const topicsList = exemptNouns.trim() ? exemptNouns.split(",").map(s => s.trim()).filter(Boolean) : [];
     const lines = [
       `Clarity Score: ${score}/100 — ${audienceLabel}`,
       ``,
@@ -485,6 +487,8 @@ export default function Home() {
       `${rare} rare       (outside top 10,000)`,
       exempt > 0 ? `${exempt} exempt    (excluded from scoring)` : null,
       `${total} total words`,
+      namesList.length  > 0 ? `  Exempt names:  ${namesList.join(", ")}` : null,
+      topicsList.length > 0 ? `  Exempt topics: ${topicsList.join(", ")}` : null,
       ``,
       `Formula: score = 100 − (word penalties ÷ ${total} words) × 100 × ${lengthMod}`,
       `  Bands: top 1k = 0 penalty · top 2k = 0.15 · top 3k = 0.35`,
