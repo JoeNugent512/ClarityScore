@@ -186,14 +186,30 @@ function stemPrefix(word: string): string[] {
   return candidates;
 }
 
+// Contraction suffixes that may appear as bare tokens when the apostrophe
+// is an unrecognised variant (e.g. U+FF07) that the tokenizer didn't capture.
+// Maps the suffix to the word it should be scored as.
+const CONTRACTION_SUFFIXES: Record<string, string> = {
+  "ve": "have",   // I've → ve → have
+  "re": "are",    // you're → re → are
+  "ll": "will",   // they'll → ll → will
+  "nt": "not",    // don't → nt → not   (n + 't splits as nt when ' missed)
+  "m": "am",      // I'm → m → am
+};
+
 // Recursively resolve a word to its most-common base form.
 // visited prevents cycles; returns the best {band, rank} found anywhere in the tree.
 function getSmart(word: string, visited: Set<string> = new Set()): { band: WordBand; rank: number | null } {
-  // Normalize curly/smart apostrophes (e.g. iOS ' U+2019) to straight ASCII '
-  // before any lookup so the CONTRACTIONS map always matches.
-  const w = word.toLowerCase().replace(/[\u2018\u2019\u02bc]/g, "'");
+  // Normalize all known apostrophe variants to straight ASCII '
+  // so the CONTRACTIONS map always matches.
+  const w = word.toLowerCase().replace(/[\u2018\u2019\u02bc\uff07]/g, "'");
   if (visited.has(w) || w.length < 1) return { band: 6 as WordBand, rank: null };
   visited.add(w);
+
+  // Bare contraction suffix — score as its full word instead of as an unknown fragment.
+  if (CONTRACTION_SUFFIXES[w]) {
+    return getSmart(CONTRACTION_SUFFIXES[w], visited);
+  }
 
   let bestBand = getWordBand(w) as WordBand;
   let bestRank = getWordRank(w);
@@ -256,7 +272,8 @@ function isWordExempt(word: string, exemptSet: Set<string>): boolean {
 function tokenize(text: string, exemptSet: Set<string>) {
   // Match words (with optional contractions/possessives), numbers (with commas),
   // then any other non-whitespace character, then whitespace runs.
-  const re = /[a-zA-Z]+(?:['''][a-zA-Z]+)?|\d[\d,]*|\S|\s+/g;
+  // Apostrophe class covers: straight ' (U+0027), curly ' (U+2018/2019), modifier ʼ (U+02BC), fullwidth ＇ (U+FF07)
+  const re = /[a-zA-Z]+(?:[\u0027\u2018\u2019\u02bc\uff07][a-zA-Z]+)?|\d[\d,]*|\S|\s+/g;
   const tokens: Array<{ text: string; band: WordBand; rank: number | null; isPunctuation: boolean; isExempt: boolean }> = [];
   let match: RegExpExecArray | null;
   while ((match = re.exec(text)) !== null) {
