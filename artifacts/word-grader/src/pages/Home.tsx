@@ -321,7 +321,7 @@ function scoreText(words: { text: string; band: WordBand; isPunctuation: boolean
 
 const DEFAULT_TEXT = "The quick brown fox jumps over the lazy dog.";
 
-const SIMPLIFY_THRESHOLD = 85;
+const SIMPLIFY_THRESHOLD = 80;
 
 function parsePreserveWords(input: string): string[] {
   const seen = new Set<string>();
