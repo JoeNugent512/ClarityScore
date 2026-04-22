@@ -321,6 +321,72 @@ function scoreText(words: { text: string; band: WordBand; isPunctuation: boolean
 
 const DEFAULT_TEXT = "The quick brown fox jumps over the lazy dog.";
 
+const SIMPLIFY_THRESHOLD = 80;
+
+function parsePreserveWords(input: string): string[] {
+  const seen = new Set<string>();
+  return input
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .filter((s) => {
+      const key = s.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function getRareWordsForPrompt(tokens: Array<{ text: string; band: WordBand; isPunctuation: boolean; isExempt: boolean }>): string[] {
+  const seen = new Set<string>();
+  return tokens
+    .filter((t) => t.band === 6 && !t.isPunctuation && !t.isExempt)
+    .map((t) => t.text)
+    .filter((w) => {
+      const k = w.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+}
+
+function buildSimplifyPrompt(
+  score: number,
+  audienceLabel: string,
+  rareWords: string[],
+  preserveList: string[],
+  text: string,
+): string {
+  const rareSection = rareWords.length > 0 ? rareWords.join(", ") : "None specifically listed.";
+  const preserveSection = preserveList.length > 0 ? preserveList.join(", ") : "None provided.";
+  return `Please rewrite the following text to make it easier to read while preserving its meaning, tone, and important details.
+
+Goals:
+- Keep the original meaning accurate
+- Keep the tone appropriate to the original
+- Prefer common, familiar words where possible
+- Shorten or simplify long sentences where possible
+- Reduce unnecessary jargon
+- Improve readability without flattening useful nuance
+- If a technical or domain-specific word is necessary, keep it
+
+Current Clarity Score: ${score}/100
+Audience Level: ${audienceLabel}
+
+Rare or difficult words detected:
+${rareSection}
+
+Words to preserve / do not simplify unless absolutely necessary:
+${preserveSection}
+
+Text to revise:
+${text}
+
+Please provide:
+1. A clearer rewritten version
+2. A short bullet list of the biggest clarity improvements you made`;
+}
+
 function InfoModal({ onClose }: { onClose: () => void }) {
   return (
     <div
@@ -432,9 +498,17 @@ export default function Home() {
   const [isDefault, setIsDefault] = useState(true);
   const [showInfo, setShowInfo] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [promptCopyFailed, setPromptCopyFailed] = useState(false);
 
   const [exemptNames, setExemptNames] = useState("");
   const [exemptNouns, setExemptNouns] = useState("");
+  const [preserveWords, setPreserveWords] = useState<string>(
+    () => {
+      try { return localStorage.getItem("cs_preserve_words") ?? ""; }
+      catch { return ""; }
+    }
+  );
 
   const exemptSet = useMemo(() => {
     const parse = (s: string) =>
@@ -445,6 +519,11 @@ export default function Home() {
   type TooltipInfo = { word: string; band: WordBand; rank: number | null; isExempt: boolean; x: number; y: number };
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try { localStorage.setItem("cs_preserve_words", preserveWords); }
+    catch { /* storage unavailable */ }
+  }, [preserveWords]);
 
   useEffect(() => {
     const dismiss = (e: MouseEvent) => {
@@ -501,6 +580,20 @@ export default function Home() {
     navigator.clipboard.writeText(lines).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const copySimplifyPrompt = () => {
+    const rareWords = getRareWordsForPrompt(tokens);
+    const preserveList = parsePreserveWords(preserveWords);
+    const prompt = buildSimplifyPrompt(score, audienceLabel, rareWords, preserveList, analysisText);
+    setPromptCopyFailed(false);
+    navigator.clipboard.writeText(prompt).then(() => {
+      setCopiedPrompt(true);
+      setTimeout(() => setCopiedPrompt(false), 2000);
+    }).catch(() => {
+      setPromptCopyFailed(true);
+      setTimeout(() => setPromptCopyFailed(false), 4000);
     });
   };
 
@@ -665,6 +758,19 @@ export default function Home() {
               />
             </div>
           </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-stone-500 uppercase tracking-wide flex items-center gap-1.5">
+              Words to preserve
+              <span className="normal-case font-normal text-stone-400">(for AI simplify prompt)</span>
+            </label>
+            <input
+              type="text"
+              className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-300 transition"
+              placeholder="ERDC, PEPR, API, Power Platform, …"
+              value={preserveWords}
+              onChange={(e) => setPreserveWords(e.target.value)}
+            />
+          </div>
         </div>
 
         <div className="flex flex-col gap-3">
@@ -701,6 +807,7 @@ export default function Home() {
               <span className="text-stone-400">Your highlighted text will appear here…</span>
             ) : (
               tokens.map((token, i) => {
+
                 if (token.isPunctuation || /^\s+$/.test(token.text)) {
                   return <span key={i}>{token.text}</span>;
                 }
@@ -748,6 +855,32 @@ export default function Home() {
             )}
           </div>
         </div>
+
+        {!isDefault && total > 0 && score < SIMPLIFY_THRESHOLD && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 flex flex-col gap-2 shadow-sm">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <div className="text-sm font-semibold text-amber-900">Score below {SIMPLIFY_THRESHOLD} — want to simplify?</div>
+                <div className="text-xs text-amber-700 mt-0.5">Copy a prompt you can paste into Claude or ChatGPT.</div>
+              </div>
+              <button
+                onClick={copySimplifyPrompt}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition whitespace-nowrap"
+                style={copiedPrompt
+                  ? { background: "hsl(142,60%,92%)", color: "hsl(142,60%,30%)", borderColor: "hsl(142,60%,70%)" }
+                  : { background: "white", color: "hsl(30,80%,30%)", borderColor: "hsl(35,70%,60%)" }
+                }
+              >
+                {copiedPrompt ? "✓ Copied!" : "Copy AI Simplify Prompt"}
+              </button>
+            </div>
+            {promptCopyFailed && (
+              <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                Clipboard access was blocked. Please copy the prompt manually from your browser's clipboard dialog.
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="rounded-xl border border-stone-200 bg-white px-5 py-4 text-sm text-stone-600 shadow-sm">
           <p className="leading-relaxed">
