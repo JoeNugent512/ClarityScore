@@ -774,9 +774,22 @@ export default function Home() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <span className="text-sm font-semibold text-stone-700">Highlighted output</span>
-            <span className="text-xs text-stone-400 flex items-center gap-2">
+            <span className="text-xs text-stone-400 flex items-center gap-2 flex-wrap">
+              {!isDefault && total > 0 && score < SIMPLIFY_THRESHOLD && (
+                <button
+                  onClick={copySimplifyPrompt}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition"
+                  style={copiedPrompt
+                    ? { background: "hsl(142,60%,92%)", color: "hsl(142,60%,30%)", borderColor: "hsl(142,60%,70%)" }
+                    : { background: "hsl(48,95%,95%)", color: "hsl(32,80%,28%)", borderColor: "hsl(40,70%,60%)" }
+                  }
+                  title="Copy AI simplify prompt to clipboard"
+                >
+                  {copiedPrompt ? "✓ Copied!" : "Copy AI Simplify Prompt"}
+                </button>
+              )}
               {!isDefault && total > 0 && (
                 <button
                   onClick={copyScore}
@@ -855,32 +868,6 @@ export default function Home() {
             )}
           </div>
         </div>
-
-        {!isDefault && total > 0 && score < SIMPLIFY_THRESHOLD && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 flex flex-col gap-2 shadow-sm">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <div className="text-sm font-semibold text-amber-900">Score below {SIMPLIFY_THRESHOLD} — want to simplify?</div>
-                <div className="text-xs text-amber-700 mt-0.5">Copy a prompt you can paste into Claude or ChatGPT.</div>
-              </div>
-              <button
-                onClick={copySimplifyPrompt}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition whitespace-nowrap"
-                style={copiedPrompt
-                  ? { background: "hsl(142,60%,92%)", color: "hsl(142,60%,30%)", borderColor: "hsl(142,60%,70%)" }
-                  : { background: "white", color: "hsl(30,80%,30%)", borderColor: "hsl(35,70%,60%)" }
-                }
-              >
-                {copiedPrompt ? "✓ Copied!" : "Copy AI Simplify Prompt"}
-              </button>
-            </div>
-            {promptCopyFailed && (
-              <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                Clipboard access was blocked. Please copy the prompt manually from your browser's clipboard dialog.
-              </div>
-            )}
-          </div>
-        )}
 
         <div className="rounded-xl border border-stone-200 bg-white px-5 py-4 text-sm text-stone-600 shadow-sm">
           <p className="leading-relaxed">
