@@ -303,9 +303,12 @@ function scoreText(words: { text: string; band: WordBand; isPunctuation: boolean
   // Exempt words are excluded entirely — they don't pad the score or penalise it.
   const real = words.filter((w) => !w.isPunctuation && !w.isExempt && w.text.replace(/[^a-z]/gi, "").length > 0);
   const total = real.length;
-  if (total === 0) return { total: 0, rare: 0, exempt: 0, score: 100 };
-  const rare = real.filter((w) => w.band === 6).length;
-  const exempt = words.filter((w) => w.isExempt).length;
+  if (total === 0) return { total: 0, common: 0, uncommon: 0, rare: 0, exempt: 0, score: 100 };
+  // common = top 1k–2k (bands 1–2), uncommon = top 3k–10k (bands 3–5), rare = outside top 10k (band 6)
+  const common   = real.filter((w) => w.band <= 2).length;
+  const uncommon = real.filter((w) => w.band >= 3 && w.band <= 5).length;
+  const rare     = real.filter((w) => w.band === 6).length;
+  const exempt   = words.filter((w) => w.isExempt).length;
   // Gradient penalty: every band above the top 1k costs something,
   // with words outside the top 10k costing the most.
   const penalty = real.reduce((sum, w) => sum + bandPenalty(w.band), 0);
@@ -313,7 +316,7 @@ function scoreText(words: { text: string; band: WordBand; isPunctuation: boolean
   // so one unusual word doesn't disproportionately tank a 30-word sentence.
   const lengthMod = total < 100 ? 0.7 : total < 200 ? 0.85 : 1.0;
   const score = Math.max(0, Math.round(100 - (penalty / total) * 100 * lengthMod));
-  return { total, rare, exempt, score };
+  return { total, common, uncommon, rare, exempt, score };
 }
 
 const DEFAULT_TEXT = "The quick brown fox jumps over the lazy dog.";
@@ -428,6 +431,7 @@ export default function Home() {
   const [inputText, setInputText] = useState(DEFAULT_TEXT);
   const [isDefault, setIsDefault] = useState(true);
   const [showInfo, setShowInfo] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const [exemptNames, setExemptNames] = useState("");
   const [exemptNouns, setExemptNouns] = useState("");
@@ -454,7 +458,7 @@ export default function Home() {
   // When the default placeholder is showing, don't analyse anything.
   const analysisText = isDefault ? "" : inputText;
   const tokens = useMemo(() => tokenize(analysisText, exemptSet), [analysisText, exemptSet]);
-  const { total, rare, exempt, score } = useMemo(() => scoreText(tokens), [tokens]);
+  const { total, common, uncommon, rare, exempt, score } = useMemo(() => scoreText(tokens), [tokens]);
 
   // Gradient penalty + length damper: good texts land in the high 80s–90s.
   const scoreColor =
@@ -470,6 +474,31 @@ export default function Home() {
     : score >= 75 ? "Fluent speakers"
     : score >= 62 ? "Advanced speakers"
     : "Near-native speakers";
+
+  const copyScore = () => {
+    const lengthMod = total < 100 ? "0.7 (short text)" : total < 200 ? "0.85 (medium text)" : "1.0 (long text)";
+    const lines = [
+      `Clarity Score: ${score}/100 — ${audienceLabel}`,
+      ``,
+      `${common} common    (top 1,000–2,000)`,
+      `${uncommon} uncommon  (top 3,000–10,000)`,
+      `${rare} rare       (outside top 10,000)`,
+      exempt > 0 ? `${exempt} exempt    (excluded from scoring)` : null,
+      `${total} total words`,
+      ``,
+      `Formula: score = 100 − (word penalties ÷ ${total} words) × 100 × ${lengthMod}`,
+      `  Bands: top 1k = 0 penalty · top 2k = 0.15 · top 3k = 0.35`,
+      `         top 5k = 0.65 · top 10k = 0.88 · rare = 1.0`,
+      `  Length modifier reduces penalties for short texts (<100 words = ×0.7, <200 = ×0.85)`,
+      ``,
+      `Scored with Vocabulary Grader — joenugent512.github.io/ClarityScore`,
+    ].filter((l): l is string => l !== null).join("\n");
+
+    navigator.clipboard.writeText(lines).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   // Word frequency bar: green → yellow → orange → dark-red → purple-red
   const gradientCss = [
@@ -638,6 +667,19 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold text-stone-700">Highlighted output</span>
             <span className="text-xs text-stone-400 flex items-center gap-2">
+              {!isDefault && total > 0 && (
+                <button
+                  onClick={copyScore}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition"
+                  style={copied
+                    ? { background: "hsl(142,60%,92%)", color: "hsl(142,60%,30%)", borderColor: "hsl(142,60%,70%)" }
+                    : { background: "white", color: "hsl(0,0%,40%)", borderColor: "hsl(0,0%,80%)" }
+                  }
+                  title="Copy score summary to clipboard"
+                >
+                  {copied ? "✓ Copied" : "Copy score"}
+                </button>
+              )}
               {total} word{total !== 1 ? "s" : ""}
               {exempt > 0 && (
                 <span className="font-medium" style={{ color: "hsl(210,70%,45%)" }}>
