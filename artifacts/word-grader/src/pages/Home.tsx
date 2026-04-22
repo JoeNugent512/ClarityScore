@@ -301,9 +301,116 @@ function scoreText(words: { text: string; band: WordBand; isPunctuation: boolean
 
 const DEFAULT_TEXT = "The quick brown fox jumps over the lazy dog.";
 
+function InfoModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.45)" }}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-stone-100">
+          <h2 className="text-lg font-bold text-stone-900">About Vocabulary Grader</h2>
+          <button
+            onClick={onClose}
+            className="text-stone-400 hover:text-stone-700 transition text-xl leading-none font-light"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="px-6 py-5 flex flex-col gap-5 text-sm text-stone-700">
+          <section>
+            <h3 className="font-semibold text-stone-900 mb-1.5">What is this?</h3>
+            <p className="leading-relaxed">
+              Vocabulary Grader scores how accessible your writing is to English speakers.
+              Paste any text and every word gets highlighted on a color scale — from common everyday words
+              to rare vocabulary that may trip up a general audience. The score reflects how likely an average
+              English speaker (not necessarily a native one) is to understand your text without difficulty.
+            </p>
+          </section>
+
+          <section>
+            <h3 className="font-semibold text-stone-900 mb-1.5">Where does the word list come from?</h3>
+            <p className="leading-relaxed">
+              The frequency rankings are based on{" "}
+              <a
+                href="https://norvig.com/ngrams/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline hover:text-blue-800"
+              >
+                Peter Norvig's English word frequency corpus
+              </a>
+              , compiled from a large sample of English text across the web, books, and news. The top 10,000 most
+              common words are divided into six bands (top 1k, 2k, 3k, 5k, 10k, and rare). Words outside
+              the top 10,000 are treated as "rare" and carry the highest penalty.
+            </p>
+          </section>
+
+          <section>
+            <h3 className="font-semibold text-stone-900 mb-2">How to use it</h3>
+            <ol className="flex flex-col gap-2.5 list-none">
+              {[
+                ["1", "Paste your text", "Click the text area and paste (or type) whatever you want to score — an email, essay, slide, job posting, anything."],
+                ["2", "Read the highlights", "Each word is colored by rarity. Green = common, yellow = moderately common, orange/red = uncommon, purple-red = rare."],
+                ["3", "Check the score", "The number in the top right corner is your clarity score out of 100. Higher means more people can easily understand your text."],
+                ["4", "Exempt known terms", "If your audience already knows certain names or jargon (e.g. a brand name, a technical term), add them to the exempt fields so they don't drag your score down."],
+                ["5", "Click any word", "Tap a highlighted word to see its exact frequency rank and which band it falls in."],
+              ].map(([num, title, desc]) => (
+                <li key={num} className="flex gap-3">
+                  <span
+                    className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white mt-0.5"
+                    style={{ background: "hsl(142,60%,35%)" }}
+                  >
+                    {num}
+                  </span>
+                  <div>
+                    <span className="font-semibold text-stone-800">{title} — </span>
+                    <span className="text-stone-600">{desc}</span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <section className="bg-stone-50 rounded-xl px-4 py-3 border border-stone-200">
+            <h3 className="font-semibold text-stone-800 mb-1">Score guide</h3>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-stone-600">
+              {[
+                ["92 – 100", "Any English speaker"],
+                ["85 – 91", "Most English speakers"],
+                ["75 – 84", "Fluent speakers"],
+                ["62 – 74", "Advanced speakers"],
+                ["0 – 61", "Near-native speakers"],
+              ].map(([range, label]) => (
+                <div key={range} className="flex justify-between gap-2 py-0.5 border-b border-stone-100 last:border-0">
+                  <span className="font-mono font-semibold text-stone-700">{range}</span>
+                  <span className="text-right">{label}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <div className="px-6 pb-5">
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-xl bg-stone-900 text-white text-sm font-semibold hover:bg-stone-700 transition"
+          >
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [inputText, setInputText] = useState(DEFAULT_TEXT);
   const [isDefault, setIsDefault] = useState(true);
+  const [showInfo, setShowInfo] = useState(false);
 
   const [exemptNames, setExemptNames] = useState("");
   const [exemptNouns, setExemptNouns] = useState("");
@@ -359,13 +466,24 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 flex flex-col">
+      {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
       <header className="border-b border-stone-200 bg-white px-6 py-4 shadow-sm">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Vocabulary Grader</h1>
-            <p className="text-sm text-stone-500 mt-0.5">
-              Highlights words by how common they are in English
-            </p>
+          <div className="flex items-center gap-2.5">
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Vocabulary Grader</h1>
+              <p className="text-sm text-stone-500 mt-0.5">
+                Highlights words by how common they are in English
+              </p>
+            </div>
+            <button
+              onClick={() => setShowInfo(true)}
+              className="flex-shrink-0 w-6 h-6 rounded-full border border-stone-300 bg-stone-100 hover:bg-stone-200 text-stone-500 hover:text-stone-800 transition flex items-center justify-center text-xs font-bold leading-none"
+              aria-label="About this app"
+              title="About & how to use"
+            >
+              ?
+            </button>
           </div>
           <div className="flex flex-col items-end gap-1.5">
             <div className="flex items-baseline gap-1.5">
