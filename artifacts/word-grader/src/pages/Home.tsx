@@ -128,6 +128,16 @@ function stemSuffix(word: string): string[] {
     if (w.endsWith("ied")) push(w.slice(0, -3) + "y");   // tried→try
   }
 
+  // -y → base noun/verb  (grassy→grass, rainy→rain, cloudy→cloud, foggy→fog)
+  // Exclude vowel-before-y endings (day, boy, key, guy) which are separate words.
+  if (w.length > 3 && w.endsWith("y") && !/[aeiou]y$/.test(w)) {
+    const s = w.slice(0, -1);
+    push(s);
+    // double-consonant collapse: muddy→mudd→mud, foggy→fogg→fog
+    if (s.length > 2 && s[s.length - 1] === s[s.length - 2])
+      push(s.slice(0, -1));
+  }
+
   return candidates;
 }
 
