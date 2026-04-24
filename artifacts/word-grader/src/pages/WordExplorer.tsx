@@ -21,8 +21,6 @@ const SORTED_WORDS: [string, number][] = Array.from(WORD_RANK_MAP.entries()).sor
   (a, b) => a[1] - b[1],
 );
 
-const MAX_RESULTS = 300;
-
 export default function WordExplorer({ onBack }: { onBack: () => void }) {
   const [search, setSearch] = useState("");
   const [pinned, setPinned] = useState<Set<string>>(new Set());
@@ -37,12 +35,12 @@ export default function WordExplorer({ onBack }: { onBack: () => void }) {
     }
     const pinnedList = SORTED_WORDS.filter(([w]) => pinned.has(w));
     if (!q) {
-      const top = SORTED_WORDS.filter(([w]) => !pinned.has(w)).slice(0, MAX_RESULTS);
-      return { rows: [...pinnedList, ...top], totalMatches: SORTED_WORDS.length - pinned.size };
+      const rest = SORTED_WORDS.filter(([w]) => !pinned.has(w));
+      return { rows: [...pinnedList, ...rest], totalMatches: SORTED_WORDS.length };
     }
     const allMatches = SORTED_WORDS.filter(([w]) => w.includes(q) && !pinned.has(w));
     return {
-      rows: [...pinnedList, ...allMatches.slice(0, MAX_RESULTS)],
+      rows: [...pinnedList, ...allMatches],
       totalMatches: allMatches.length,
     };
   }, [q, pinned, showCheckedOnly]);
@@ -73,10 +71,8 @@ export default function WordExplorer({ onBack }: { onBack: () => void }) {
   const statusText = showCheckedOnly
     ? `${pinned.size} checked word${pinned.size !== 1 ? "s" : ""}`
     : q
-    ? totalMatches > MAX_RESULTS
-      ? `Showing first ${MAX_RESULTS} of ${totalMatches} matches for "${q}"${pinned.size > 0 ? ` · ${pinned.size} checked` : ""}`
-      : `${totalMatches} match${totalMatches !== 1 ? "es" : ""} for "${q}"${pinned.size > 0 ? ` · ${pinned.size} checked` : ""}`
-    : `Showing top ${Math.min(MAX_RESULTS, SORTED_WORDS.length - pinned.size)} words — search to filter${pinned.size > 0 ? ` · ${pinned.size} checked` : ""}`;
+    ? `${totalMatches} match${totalMatches !== 1 ? "es" : ""} for "${q}"${pinned.size > 0 ? ` · ${pinned.size} checked` : ""}`
+    : `${SORTED_WORDS.length.toLocaleString()} words — search to filter${pinned.size > 0 ? ` · ${pinned.size} checked` : ""}`;
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 flex flex-col">
