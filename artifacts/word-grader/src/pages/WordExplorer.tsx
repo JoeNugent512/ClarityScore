@@ -28,6 +28,7 @@ export default function WordExplorer({ onBack }: { onBack: () => void }) {
   const [pinned, setPinned] = useState<Set<string>>(new Set());
   const [showCheckedOnly, setShowCheckedOnly] = useState(false);
   const [page, setPage] = useState(0);
+  const [pageInput, setPageInput] = useState("");
 
   const q = search.toLowerCase().trim();
 
@@ -85,6 +86,16 @@ export default function WordExplorer({ onBack }: { onBack: () => void }) {
     setPinned(new Set());
     setShowCheckedOnly(false);
     setPage(0);
+    setPageInput("");
+  };
+
+  const jumpToPage = (raw: string) => {
+    const n = parseInt(raw, 10);
+    if (!isNaN(n)) {
+      setPage(Math.min(totalPages - 1, Math.max(0, n - 1)));
+      window.scrollTo(0, 0);
+    }
+    setPageInput("");
   };
 
   const statusText = showCheckedOnly
@@ -154,17 +165,28 @@ export default function WordExplorer({ onBack }: { onBack: () => void }) {
           {usePagination && totalPages > 1 && (
             <div className="flex items-center gap-2 text-xs">
               <button
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                onClick={() => { setPage((p) => Math.max(0, p - 1)); window.scrollTo(0, 0); }}
                 disabled={safePage === 0}
                 className="px-2.5 py-1 rounded-lg border border-stone-300 bg-white text-stone-600 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition font-medium"
               >
                 ← Prev
               </button>
-              <span className="text-stone-500 tabular-nums">
-                Page {safePage + 1} of {totalPages}
+              <span className="flex items-center gap-1 text-stone-500 tabular-nums">
+                Page
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={pageInput !== "" ? pageInput : String(safePage + 1)}
+                  onFocus={() => setPageInput(String(safePage + 1))}
+                  onChange={(e) => setPageInput(e.target.value)}
+                  onBlur={(e) => jumpToPage(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); } }}
+                  className="w-10 text-center rounded border border-stone-300 bg-white px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-stone-400"
+                />
+                of {totalPages}
               </span>
               <button
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                onClick={() => { setPage((p) => Math.min(totalPages - 1, p + 1)); window.scrollTo(0, 0); }}
                 disabled={safePage >= totalPages - 1}
                 className="px-2.5 py-1 rounded-lg border border-stone-300 bg-white text-stone-600 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition font-medium"
               >
@@ -229,8 +251,19 @@ export default function WordExplorer({ onBack }: { onBack: () => void }) {
             >
               ← Prev
             </button>
-            <span className="text-stone-500 tabular-nums px-2">
-              Page {safePage + 1} of {totalPages}
+            <span className="flex items-center gap-1 text-stone-500 tabular-nums">
+              Page
+              <input
+                type="text"
+                inputMode="numeric"
+                value={pageInput !== "" ? pageInput : String(safePage + 1)}
+                onFocus={() => setPageInput(String(safePage + 1))}
+                onChange={(e) => setPageInput(e.target.value)}
+                onBlur={(e) => jumpToPage(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); } }}
+                className="w-10 text-center rounded border border-stone-300 bg-white px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-stone-400"
+              />
+              of {totalPages}
             </span>
             <button
               onClick={() => { setPage((p) => Math.min(totalPages - 1, p + 1)); window.scrollTo(0, 0); }}
