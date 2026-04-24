@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { getWordBand, getWordRank, bandToColor, bandToGradientColor, bandLabel, bandRankRange, bandPenalty, WordBand } from "@/data/wordFrequency";
+import WordExplorer from "./WordExplorer";
 
 const IRREGULAR_PLURALS: Record<string, string> = {
   // Vowel-change plurals
@@ -504,6 +505,7 @@ function InfoModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function Home() {
+  const [view, setView] = useState<"grader" | "explorer">("grader");
   const [inputText, setInputText] = useState(DEFAULT_TEXT);
   const [isDefault, setIsDefault] = useState(true);
   const [showInfo, setShowInfo] = useState(false);
@@ -596,6 +598,23 @@ export default function Home() {
     });
   };
 
+  const toggleWordExempt = (word: string) => {
+    const lower = word.toLowerCase();
+    const parseField = (s: string) => s.split(",").map((v) => v.trim()).filter(Boolean);
+    if (exemptSet.has(lower)) {
+      setExemptNouns(parseField(exemptNouns).filter((w) => w.toLowerCase() !== lower).join(", "));
+      setExemptNames(parseField(exemptNames).filter((w) => w.toLowerCase() !== lower).join(", "));
+    } else {
+      const current = parseField(exemptNouns);
+      setExemptNouns([...current, word].join(", "));
+    }
+    setTooltip(null);
+  };
+
+  if (view === "explorer") {
+    return <WordExplorer onBack={() => setView("grader")} />;
+  }
+
   // Word frequency bar: green → yellow → orange → dark-red → purple-red
   const gradientCss = [
     "hsl(142,76%,36%)",   // top 1k  – dark green
@@ -625,6 +644,13 @@ export default function Home() {
               title="About & how to use"
             >
               ?
+            </button>
+            <button
+              onClick={() => setView("explorer")}
+              className="flex-shrink-0 px-2.5 py-1 rounded-lg border border-stone-300 bg-stone-100 hover:bg-stone-200 text-stone-500 hover:text-stone-800 transition text-xs font-semibold"
+              title="Browse the word frequency list"
+            >
+              Word list
             </button>
           </div>
           <div className="flex flex-col items-end gap-1.5">
@@ -918,6 +944,17 @@ export default function Home() {
                 </div>
               </>
             )}
+            <label className="flex items-center gap-1.5 mt-2 pt-2 border-t border-stone-100 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={tooltip.isExempt}
+                onChange={() => toggleWordExempt(tooltip.word)}
+                className="w-3.5 h-3.5 cursor-pointer"
+              />
+              <span className="text-xs text-stone-500">
+                {tooltip.isExempt ? "Remove from exempt" : "Add to exempt topics"}
+              </span>
+            </label>
             {/* tiny caret */}
             <div
               style={{
